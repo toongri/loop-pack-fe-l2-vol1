@@ -55,27 +55,28 @@ src/
 
 ## Hook 근거
 
-- **useProductList** — 서버 상태(로딩/에러/데이터)와 race-safe 패칭(요청 취소가 아닌 `ignore` 가드)을 한 곳에 캡슐화해, 컴포넌트가 fetch 세부와 stale-response 방어를 몰라도 되게 한다.
-- **useProductFilters** — 필터·검색·페이지 상태를 URL 쿼리와 양방향 동기화(마운트 시 복원 + 변경 시 `replaceState`)하는 책임 전체를 한 훅에 묶어, 컴포넌트가 직렬화/역직렬화 로직을 몰라도 되게 한다.
+- **useProductList** — 서버 상태(로딩/에러/데이터)와 race-safe 패칭(요청 취소가 아닌 `ignore` 가드)을 한 곳에 캡슐화해, 컴포넌트가 fetch 세부와 stale-response 방어를 몰라도 되게 한다. `status`는 params-aware다 — 현재 `params`의 응답이 아직 결착하지 않았으면 이전 `params`의 결과가 `success`로 노출되지 않고 `loading`으로 남아, stale 데이터로 파생값(예: page clamp)을 계산하지 않는다.
+- **useProductFilters** — 필터·검색·page·`origin`(`mount`/`user`/`popstate`/`normalize`) state를 소유한다. URL과의 동기화는 `useUrlQuerySync`(History effect adapter)에 위임하고, push/replace/none 여부는 `nextHistoryAction`(순수 정책 함수, `filterQuery.ts`)이 `origin`으로 결정한다. popstate 이벤트를 구독해 뒤로/앞으로가기 시 상태를 복원하고, URL 쓰기는 직렬화된 쿼리 문자열 전체를 debounce해 한 조작이 히스토리 엔트리 여러 개로 쪼개지는 것을 막는다.
 - **useDebouncedValue** — 제네릭 값 debounce라는 범용 메커니즘만 감싼 얕은 훅이지만, 검색어·최소가·최대가 세 입력 각각에서 반복되던 `setTimeout` 로직을 한 곳으로 추출해 재사용한다.
 - **useWishlist** — 위시리스트 배열 상태 + `localStorage("wishlist")` 영속화 + 토글 연산을 캡슐화해, 페이지가 저장 키나 직렬화 방식을 몰라도 되게 분리한다.
 - **useRecentlyViewed** — 최근 본 상품 배열 상태 + `localStorage("recentlyViewed")` 영속화를 담당한다. useWishlist와 구조는 같지만 "최근 순서 유지 + 개수 제한(10개)"이라는 별개의 도메인 규칙을 가져 별도 훅으로 분리했다.
 
 ## 관심사 분류
 
-| 레이어      | 파일                                                                                                              | 역할                                                                                   |
-| ----------- | ----------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| UI          | `ProductListPage.tsx`                                                                                             | 훅 조립 + 레이아웃, 도메인 로직 없음                                                   |
-| UI          | `FilterPanel.tsx`, `SearchSortBar.tsx`, `ProductGrid.tsx`, `ProductCard.tsx`, `Pagination.tsx`, `ErrorBanner.tsx` | 렌더링 + 이벤트를 상위로 위임(`onX` prop), 상태 없음                                   |
-| Hook        | `useProductList.ts`, `useProductFilters.ts`, `useDebouncedValue.ts`, `useWishlist.ts`, `useRecentlyViewed.ts`     | 상태 관리 + 도메인 상태 조합, React Effect 동기화                                      |
-| API         | `api/productApi.ts`                                                                                               | `fetchProductList` — 요청 파라미터 직렬화 및 응답 변환(fetch 경계)                     |
-| API(dev)    | `_mockApi.ts`                                                                                                     | 로컬 개발용 mock 서버 설치(`index.ts`에서만 노출) — 실제 API 경계가 아니라 개발 인프라 |
-| Utils       | `filterQuery.ts`                                                                                                  | URL 쿼리 ↔ 필터 순수 변환(`parseQueryToFilters`/`serializeFiltersToQuery`)             |
-| Utils       | `listOps.ts`                                                                                                      | `toggleId`/`addRecentId` — id 배열 순수 연산                                           |
-| Utils       | `productBadges.ts`                                                                                                | `computeBadges` — 할인율·NEW·품절 등 배지 순수 계산(현재 시각은 인자로 주입)           |
-| Utils       | `highlight.ts`                                                                                                    | `escapeRegExp`/`splitByMatch` — 검색어 하이라이팅 순수 계산                            |
-| Utils       | `types.ts`                                                                                                        | 도메인 타입 정의(`Product`, `Filters`, `SortBy` 등)                                    |
-| Utils(검증) | `pure.check.ts`                                                                                                   | 위 순수 함수들의 자체 회귀 검증 스크립트                                               |
+| 레이어     | 파일                                                                                                                                | 역할                                                                                                                                                                              |
+| ---------- | ----------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| UI         | `ProductListPage.tsx`                                                                                                               | 훅 조립 + 레이아웃, 도메인 로직 없음                                                                                                                                              |
+| UI         | `FilterPanel.tsx`, `SearchSortBar.tsx`, `ProductGrid.tsx`, `ProductCard.tsx`, `Pagination.tsx`, `ErrorBanner.tsx`                   | 렌더링 + 이벤트를 상위로 위임(`onX` prop), 상태 없음                                                                                                                              |
+| Hook       | `useProductList.ts`, `useProductFilters.ts`, `useUrlQuerySync.ts`, `useDebouncedValue.ts`, `useWishlist.ts`, `useRecentlyViewed.ts` | 상태 관리 + 도메인 상태 조합, React Effect 동기화                                                                                                                                 |
+| API        | `api/productApi.ts`                                                                                                                 | `fetchProductList` — 요청 파라미터 직렬화 및 응답 변환(fetch 경계)                                                                                                                |
+| API(dev)   | `_mockApi.ts`                                                                                                                       | 로컬 개발용 mock 서버 설치(`index.ts`에서만 노출) — 실제 API 경계가 아니라 개발 인프라                                                                                            |
+| Utils      | `filterQuery.ts`                                                                                                                    | URL 쿼리 ↔ 필터 순수 변환(`parseQueryToFilters`/`serializeFiltersToQuery`) + 히스토리 정책(`nextHistoryAction`) + page 보정(`clampPage`) + 가격 역전 판정(`isPriceRangeInverted`) |
+| Utils      | `listOps.ts`                                                                                                                        | `toggleId`/`addRecentId`/`parseIdList` — id 배열 순수 연산 + localStorage 원본의 스키마 가드 파싱                                                                                 |
+| Utils      | `productBadges.ts`                                                                                                                  | `computeBadges` — 할인율·NEW·품절 등 배지 순수 계산(현재 시각은 인자로 주입)                                                                                                      |
+| Utils      | `highlight.ts`                                                                                                                      | `escapeRegExp`/`splitByMatch` — 검색어 하이라이팅 순수 계산                                                                                                                       |
+| Utils      | `types.ts`                                                                                                                          | 도메인 타입 정의(`Product`, `Filters`, `SortBy` 등)                                                                                                                               |
+| Test       | `*.test.ts(x)`                                                                                                                      | Vitest + React Testing Library — 대상 파일과 같은 위치에 콜로케이션                                                                                                               |
+| Test(mock) | `src/mocks/`(`handlers.ts`, `server.ts`, `setup.ts`)                                                                                | MSW 핸들러·서버·테스트 생명주기 — 네트워크 요청을 요청 쿼리 기준으로 가로챈다                                                                                                     |
 
 ## 버그 수정
 
@@ -91,11 +92,22 @@ src/
 원인: 원본은 `searchQuery`/`minPrice`/`maxPrice`가 바뀔 때마다(키 입력마다) fetch effect가 즉시 재실행돼 매 타이핑마다 API를 호출했고, effect에 `ignore` 같은 가드가 없어 이전 요청의 응답이 최신 요청보다 늦게 도착하면 stale 데이터로 최신 상태를 덮어쓰는 race condition이 있었다.
 수정: `useDebouncedValue`로 검색어·최소가·최대가를 debounce한 값만 `useProductList`의 `params`에 반영하고(`ProductListPage.tsx:40-65`), `useProductList.ts`의 fetch effect에 `ignore` 플래그를 도입해 클린업된(stale) 요청의 `setState`를 모두 무시하도록 했다(`useProductList.ts:24-51`).
 
-## 미수정 항목
+**bug#4 — min > max(가격 범위 역전)**
+원인: 사용자가 최소가를 최대가보다 크게 입력해도 막지 않았다. 그대로 서버 쿼리에 실려 나가며, 서버가 빈 결과를 돌려주는 것으로 사실상 처리됐다.
+수정: `filterQuery.ts`에 순수 판정 함수 `isPriceRangeInverted`를 추가하고(`filterQuery.ts:98-100`), `FilterPanel`이 `minPrice`/`maxPrice`가 역전이면 `role="alert"` 경고 문구를 렌더링하도록 배선했다(`FilterPanel.tsx:72-74`). 요청 자체를 막지는 않고 경고만 보여준다.
 
-의도적으로 손대지 않았거나 아직 검증하지 못한 항목이다.
+**bug#5 — 손상된 localStorage 값**
+원인: `useWishlist`/`useRecentlyViewed`는 `JSON.parse` 실패(try/catch)만 방어하고 빈 배열로 폴백했다. 파싱은 되지만 스키마가 다른 값(예: 배열이 아닌 객체, 문자열 배열)은 그대로 상태에 실렸다.
+수정: `listOps.ts`에 `parseIdList`를 추가해 파싱 결과가 `number[]`인지 검증하고 아니면 빈 배열로 폴백하도록 했다(`listOps.ts:12-27`). `useWishlist`/`useRecentlyViewed`가 원본 `JSON.parse` 대신 이 함수를 쓰도록 교체했다(`useWishlist.ts:2,10`, `useRecentlyViewed.ts:2,10`).
 
-- **min > max(가격 범위 역전)**: 사용자가 최소가를 최대가보다 크게 입력해도 막지 않는다. 그대로 서버 쿼리에 실려 나가며, 서버가 빈 결과를 돌려주는 것으로 사실상 처리된다.
-- **손상된 localStorage 값**: `useWishlist`/`useRecentlyViewed`는 `JSON.parse` 실패(try/catch)만 방어하고 빈 배열로 폴백한다. 파싱은 되지만 스키마가 다른 값(예: 배열이 아닌 객체, 문자열 배열)에 대한 검증은 하지 않는다.
-- **page > totalPages가 `?page=999` 같은 URL로 직접 복원 가능**: bug#1 수정으로 마운트 시 URL의 `page` 값을 그대로 신뢰한다. `parseQueryToFilters`의 `parsePositiveInt`는 "양의 정수인지"만 검증하고 실제 `totalPages`(서버 응답 이후에만 알 수 있음) 상한은 검증하지 않아, 존재하지 않는 페이지 번호로 직접 진입하면 빈 목록 상태에 빠질 수 있다.
-- **unknown URL 파라미터가 마운트 시 strip(canonicalization)됨**: `useProductFilters`의 동기화 `useEffect`가 마운트 직후에도 한 번 실행되어, `parseQueryToFilters`가 인식하는 필드만 `serializeFiltersToQuery`로 재직렬화해 `replaceState`한다. 그 결과 `?foo=bar`처럼 스키마에 없는 파라미터는 첫 렌더 직후 URL에서 사라진다(원본에는 없던, 이번 리팩터로 새로 도달 가능해진 동작). 의도된 정규화(canonicalization)인지, UTM 등 보존해야 할 파라미터가 있는지는 검증하지 않았다.
+**bug#6 — page > totalPages가 `?page=999` 같은 URL로 직접 복원 가능**
+원인: bug#1 수정으로 마운트 시 URL의 `page` 값을 그대로 신뢰했다. `parseQueryToFilters`의 `parsePositiveInt`는 "양의 정수인지"만 검증하고 실제 `totalPages`(서버 응답 이후에만 알 수 있음) 상한은 검증하지 않아, 존재하지 않는 페이지 번호로 직접 진입하면 빈 목록 상태에 빠질 수 있었다.
+수정: `filterQuery.ts`에 `clampPage`를 추가하고(`filterQuery.ts:93-95`), `useProductFilters`가 이를 쓰는 `normalizePage(totalPages)`를 노출하도록 했다(`useProductFilters.ts:94-99`). `ProductListPage`가 `status === "success"`일 때만 렌더 중 `normalizePage`를 호출해 origin `"normalize"`로 clamp하고 `replace`로 URL을 쓴다(`ProductListPage.tsx:90-96`).
+
+**bug#7 — stale 상태 버그(크로스필터 뒤로가기)**
+원인: 필터를 바꾼 직후 이전 필터의 응답이 아직 로딩 중인데 `status`가 params-unaware하게 이전 `totalCount`와 함께 `success`로 노출되면, bug#6의 clamp가 옛 `totalCount` 기준으로 `page`를 잘못 보정할 수 있었다. 뒤로가기로 필터가 바뀌는 상황(popstate → 새 category, 이전 totalCount 잔존)에서 특히 드러난다.
+수정: `useProductList`가 마지막으로 결착한 fetch의 `params`(`resolvedParams`)를 기억하고, 현재 `params`와 다르면 `status`를 강제로 `loading`으로 노출하도록 했다(`useProductList.ts:21,55`). `ProductListPage`의 clamp 호출은 `status === "success"`를 가드로 쓰므로 옛 데이터로는 clamp가 실행되지 않는다(`ProductListPage.tsx:90-96`).
+
+## 의도된 정규화
+
+- **unknown URL 파라미터가 마운트 시 strip(canonicalization)됨**: `useProductFilters`가 마운트 시 `parseQueryToFilters`가 인식하는 필드만 복원하고, 그 결과를 `useUrlQuerySync`가 `nextHistoryAction`의 `origin === "mount"` 분기로 `replace` 써서 URL을 정규화한다. `?foo=bar`처럼 스키마에 없는 파라미터는 첫 렌더 직후 URL에서 사라진다. 이 PR에서 이를 **의도된 정규화**로 결정했다 — 히스토리 엔트리를 쌓지 않는 `replace`를 쓰는 이유를 포함한 근거는 `docs/react/url-state.md`(§1 정규화)에 있다.
