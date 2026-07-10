@@ -15,16 +15,17 @@ type UseProductListResult = {
 export function useProductList(params: ProductListParams): UseProductListResult {
   const [products, setProducts] = useState<Product[]>([]);
   const [totalCount, setTotalCount] = useState(0);
-  const [status, setStatus] = useState<Status>("idle");
+  const [rawStatus, setRawStatus] = useState<Status>("idle");
   const [error, setError] = useState<Error | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
+  const [resolvedParams, setResolvedParams] = useState<ProductListParams | null>(null);
 
   useEffect(() => {
     let ignore = false;
 
     const load = async () => {
       if (!ignore) {
-        setStatus("loading");
+        setRawStatus("loading");
         setError(null);
       }
       try {
@@ -32,12 +33,14 @@ export function useProductList(params: ProductListParams): UseProductListResult 
         if (!ignore) {
           setProducts(data.products);
           setTotalCount(data.totalCount);
-          setStatus("success");
+          setRawStatus("success");
+          setResolvedParams(params);
         }
       } catch (err) {
         if (!ignore) {
           setError(err instanceof Error ? err : new Error(String(err)));
-          setStatus("error");
+          setRawStatus("error");
+          setResolvedParams(params);
         }
       }
     };
@@ -48,6 +51,8 @@ export function useProductList(params: ProductListParams): UseProductListResult 
       ignore = true;
     };
   }, [params, reloadKey]);
+
+  const status: Status = resolvedParams === params ? rawStatus : "loading";
 
   const refetch = () => {
     setReloadKey((key) => key + 1);

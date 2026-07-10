@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { toggleId } from "./listOps";
+import { parseIdList, toggleId } from "./listOps";
 
 const STORAGE_KEY = "wishlist";
 
@@ -7,8 +7,7 @@ const STORAGE_KEY = "wishlist";
 export function useWishlist() {
   const [wishlist, setWishlist] = useState<number[]>(() => {
     try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      return stored ? JSON.parse(stored) : [];
+      return parseIdList(localStorage.getItem(STORAGE_KEY));
     } catch {
       return [];
     }

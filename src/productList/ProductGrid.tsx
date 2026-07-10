@@ -10,6 +10,8 @@ type ProductGridProps = {
   wishlist: number[];
   onToggleWishlist: (productId: number) => void;
   onProductClick: (productId: number) => void;
+  /** 배지 계산 기준 시각 — 페이지에서 렌더 밖 1회 캡처 후 주입 */
+  now: Date;
 };
 
 export function ProductGrid({
@@ -20,6 +22,7 @@ export function ProductGrid({
   wishlist,
   onToggleWishlist,
   onProductClick,
+  now,
 }: ProductGridProps) {
   return (
     <>
@@ -38,6 +41,7 @@ export function ProductGrid({
               isWished={wishlist.includes(product.id)}
               onToggleWishlist={onToggleWishlist}
               onClick={onProductClick}
+              now={now}
             />
           ))
         )}
