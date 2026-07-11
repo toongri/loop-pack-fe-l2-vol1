@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { addRecentId } from "./listOps";
+import { addRecentId, parseIdList } from "./listOps";
 
 const STORAGE_KEY = "recentlyViewed";
 
@@ -7,8 +7,7 @@ const STORAGE_KEY = "recentlyViewed";
 export function useRecentlyViewed() {
   const [recentlyViewed, setRecentlyViewed] = useState<number[]>(() => {
     try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      return stored ? JSON.parse(stored) : [];
+      return parseIdList(localStorage.getItem(STORAGE_KEY));
     } catch {
       return [];
     }

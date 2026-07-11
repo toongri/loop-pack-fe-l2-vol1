@@ -9,6 +9,8 @@ type ProductCardProps = {
   isWished: boolean;
   onToggleWishlist: (productId: number) => void;
   onClick: (productId: number) => void;
+  /** 배지 계산 기준 시각 — 페이지에서 렌더 밖 1회 캡처 후 주입 */
+  now: Date;
 };
 
 const formatPrice = (won: number) => won.toLocaleString() + "원";
@@ -19,9 +21,10 @@ export function ProductCard({
   isWished,
   onToggleWishlist,
   onClick,
+  now,
 }: ProductCardProps) {
   const { discountRate, isNew, isHot, isBest, isSoldOut, isAlmostSoldOut, isFreeShipping } =
-    computeBadges(product, new Date());
+    computeBadges(product, now);
 
   return (
     <article className="product-card" onClick={() => onClick(product.id)}>

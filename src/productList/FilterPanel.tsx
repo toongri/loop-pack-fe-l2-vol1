@@ -1,4 +1,5 @@
 import type { ChangeEvent } from "react";
+import { isPriceRangeInverted } from "./filterQuery.ts";
 import type { Filters } from "./types.ts";
 
 const CATEGORIES: { value: Filters["category"]; label: string }[] = [
@@ -68,6 +69,9 @@ export function FilterPanel({
             min={0}
           />
         </div>
+        {isPriceRangeInverted(minPrice, maxPrice) && (
+          <p role="alert">최소 가격이 최대 가격보다 큽니다</p>
+        )}
       </div>
 
       <div className="filter-group">

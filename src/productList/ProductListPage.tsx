@@ -32,9 +32,11 @@ export function ProductListPage() {
     setInStockOnly,
     setPage,
     reset,
+    normalizePage,
   } = useProductFilters();
 
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
+  const [now] = useState(() => new Date());
 
   // ─── 텍스트 필드만 debounce — category/sortBy/page/inStockOnly는 즉시 반영 ──
   const debouncedSearch = useDebouncedValue(searchQuery, DEBOUNCE_MS);
@@ -84,6 +86,14 @@ export function ProductListPage() {
   };
 
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
+
+  // ─── 렌더 중 가드된 상태 조정 — page 단일 진실을 유지하려고 useEffect가 아닌 ──
+  // ─── 렌더 본문에서 clamp한다. status는 params-aware라 "success"는 지금 이 ──
+  // ─── params의 데이터가 도착했다는 뜻이므로, 필터 전환 중 옛 totalCount로 ──
+  // ─── out-of-range page를 잘못 clamp하는 일이 없다 ─────────────────────
+  if (status === "success") {
+    normalizePage(totalPages);
+  }
 
   // ─── cold 로딩만 전체화면 early-return — warm 로딩은 ProductGrid가 담당 ──
   if (status === "loading" && products.length === 0) {
@@ -136,6 +146,7 @@ export function ProductListPage() {
             wishlist={wishlist}
             onToggleWishlist={toggleWishlist}
             onProductClick={addRecentlyViewed}
+            now={now}
           />
 
           <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />

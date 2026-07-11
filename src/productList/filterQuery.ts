@@ -74,3 +74,27 @@ export function serializeFiltersToQuery(filters: QueryFilters): string {
   if (filters.inStockOnly) params.set("inStock", "true");
   return params.toString();
 }
+
+export type HistoryOrigin = "mount" | "user" | "popstate" | "normalize";
+
+/** URL 쿼리 변경을 히스토리에 어떻게 반영할지 결정한다(순수). */
+export function nextHistoryAction(
+  current: string,
+  next: string,
+  origin: HistoryOrigin,
+): "push" | "replace" | "none" {
+  if (origin === "popstate") return "none";
+  if (next === current) return "none";
+  if (origin === "mount" || origin === "normalize") return "replace";
+  return "push";
+}
+
+/** page를 1과 totalPages 사이로 클램프한다(totalPages가 0 이하여도 최소 1). */
+export function clampPage(page: number, totalPages: number): number {
+  return Math.min(Math.max(1, page), Math.max(1, totalPages));
+}
+
+/** 둘 다 숫자이고 min이 max보다 클 때만 true(빈 문자열은 언제나 false). */
+export function isPriceRangeInverted(min: number | "", max: number | ""): boolean {
+  return min !== "" && max !== "" && min > max;
+}
