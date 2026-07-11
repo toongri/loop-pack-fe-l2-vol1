@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   FILTER_DEFAULTS,
   clampPage,
@@ -107,8 +107,9 @@ export function useProductFilters() {
     inStockOnly,
     page,
   });
-  const debouncedQuery = useDebouncedValue(query, URL_WRITE_DEBOUNCE_MS);
-  useUrlQuerySync(debouncedQuery, origin, restore);
+  const snapshot = useMemo(() => ({ query, origin }), [query, origin]);
+  const debounced = useDebouncedValue(snapshot, URL_WRITE_DEBOUNCE_MS);
+  useUrlQuerySync(debounced.query, debounced.origin, restore);
 
   return {
     category,
