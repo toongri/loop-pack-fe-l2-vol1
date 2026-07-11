@@ -163,6 +163,15 @@ const params = useMemo<ProductListParams>(
 
 이렇게 안정시킨 `params` 참조 위에서 `useProductList`(`useProductList.ts:50`)는 `[params, reloadKey]`를 그대로 deps로 쓴다 — 매 렌더 새 요청이 나가지 않는 건 이 `params`가 실제로 바뀔 때만 참조가 바뀌기 때문이다.
 
+두 번째 사례는 `useProductFilters`(`useProductFilters.ts:110-111`)의 `snapshot`이다. `query`와 `origin`을 객체 리터럴로 그대로 `useDebouncedValue`에 넘기면, 그 내부 `useEffect`(deps `[value, delayMs]`)가 매 렌더 새 참조를 받아 debounce 타이머가 계속 리셋된다 — `useMemo`로 참조를 고정해야 debounce가 실제로 동작한다.
+
+```tsx
+const snapshot = useMemo(() => ({ query, origin }), [query, origin]);
+const debounced = useDebouncedValue(snapshot, URL_WRITE_DEBOUNCE_MS);
+```
+
+이 사례는 아래 Caveat와도 정합한다: 여기서 정확성(query·origin desync 제거)은 `useMemo`의 캐시가 아니라 **query와 origin을 한 객체에 담은 구조**에서 나온다. React가 이 캐시를 버리고 매번 새 객체를 만들어도 desync는 재발하지 않고, 최악의 경우 debounce가 조금 더 지연될 뿐이다(URL 동기화 맥락은 [`url-state.md`](./url-state.md) §3 참고).
+
 > **Caveat**: `useMemo`는 성능 최적화 도구이지 정확성 보장 도구가 아니다. React는 이 캐시를 언제든 버리고 재계산할 수 있으므로, **"값이 반드시 고정되어야 한다"는 정확성을 `useMemo`에 의존하면 안 된다.** 값을 반드시 고정해야 한다면 `useRef`나 명시적 상태로 관리한다(비순수 계산을 `useMemo`로 감싸면 안 되는 이유는 아래 10절 참고).
 
 ## 8. 직접 fetch할 때 — race와 의존성

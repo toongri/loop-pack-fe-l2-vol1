@@ -27,6 +27,22 @@ URL 쓰기는 **개별 필드가 아니라 직렬화된 쿼리 문자열 전체*
 
 직렬화 결과(최종 쿼리 문자열) 단위로 debounce하면, 같은 조작에서 나온 여러 state 변경이 한 스냅샷으로 합쳐져 히스토리 엔트리가 정확히 1개가 된다. 카테고리·정렬·페이지 클릭 같은 즉시 반응이 필요한 조작도 화면·요청은 즉시 갱신되고 URL 쓰기만 지연되므로 사용자에게는 보이지 않는다.
 
+### origin도 함께 묶어 debounce한다
+
+debounce 대상은 query 문자열만이 아니다. URL에 쓸 query와, 그 쓰기의 히스토리 정책(§2 진리표)을 정하는 `origin`을 **한 스냅샷으로 묶어 함께 debounce**한다.
+
+`origin`은 사용자 조작 즉시 갱신되는데 query만 debounce하면 두 값의 시점이 어긋난다. popstate로 과거 URL이 복원된 직후, debounce 창 안에서 사용자가 필터를 조작하면 `origin`은 즉시 `"user"`가 되지만 debounce된 query는 아직 이전(stale) 값이다. 이 (stale query, 새 origin) 짝이 §2 진리표에 들어가면, 사용자가 방문한 적 없는 과거 query가 `push` 정책으로 써져 유령 히스토리 엔트리가 생긴다.
+
+해결은 `{ query, origin }`을 `useMemo`로 묶어 함께 debounce하는 것이다. 그러면 두 값이 항상 같은 시점의 짝이 되고, 그 debounce 창 안에서는 하위 effect의 deps가 흔들리지 않아 stale 쓰기 자체가 사라진다(스냅샷 참조 안정화 원리는 [`hook-design.md`](./hook-design.md) §7 참고).
+
+```tsx
+const snapshot = useMemo(() => ({ query, origin }), [query, origin]);
+const debounced = useDebouncedValue(snapshot, URL_WRITE_DEBOUNCE_MS);
+useUrlQuerySync(debounced.query, debounced.origin, restore);
+```
+
+**URL에 쓰는 값과 그 히스토리 정책을 정하는 값은 한 짝이다 — 함께 debounce하라.**
+
 ## 4. no-op 가드 — 같으면 쓰지 않는다
 
 직렬화 결과가 현재 URL과 같으면 쓰지 않는다(위 진리표의 `next === current → none`). 불필요한 replace/push 호출과 리렌더를 막는다.
